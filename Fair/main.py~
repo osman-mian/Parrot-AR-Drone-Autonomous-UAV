@@ -80,7 +80,7 @@ def callback(navdata):
 		#print(st.position)
 	
 		st.position = st.position + (np.dot(pose,position_local))
-		st.velocity = np.dot(pose,average_window.getAverage(v_q,window))
+		st.velocity = np.dot(pose,np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
 
 		#print	st.position
 		#print "-************-\n"

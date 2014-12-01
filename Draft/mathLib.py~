@@ -5,7 +5,7 @@ def run():
     col_vec = np.array([[1], [2]])
     print "column vector"
     print col_vec
-    
+    print col_vec[0];
     
     # create a row vector
     row_vec = np.array([[1, 2]])

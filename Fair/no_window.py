@@ -7,10 +7,9 @@ from ardrone_autonomy.msg import Navdata
 from geometry_msgs.msg import Twist, Vector3
 from std_msgs.msg import Empty
 import numpy as np
-from Queue import Queue
+import Queue
 
 import pose_matrix as poses
-import average_window
 
 ################################################
 t=0
@@ -47,8 +46,6 @@ pub_land = rospy.Publisher('/ardrone/land', Empty)
 pub_reset = rospy.Publisher('/ardrone/reset', Empty)
 
 
-window=5
-v_q = Queue(window)
 ############################################
 
 def callback(navdata):
@@ -58,63 +55,77 @@ def callback(navdata):
 	global code
 	global position_local
 	global target
-	global v_q
 	#compute time since last call
 	t2=t
 	t = navdata.header.stamp.to_sec()
 	dt= t-t2
 
-	if v_q.full():
 
-		v_q.get()
-		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
+	roll_mat = poses.calculate_roll_pose(navdata.rotX);
 
-		roll_mat = poses.calculate_roll_pose(navdata.rotX);
-		pitch_mat = poses.calculate_pitch_pose(navdata.rotY);
-		yaw_mat = poses.calculate_yaw_pose(navdata.rotZ);
+	pitch_mat = poses.calculate_pitch_pose(navdata.rotY);
 	
-		pose=np.dot(np.dot(roll_mat,pitch_mat),yaw_mat);
-
-		#get local distance co-ordinates
-		position_local= dt *  average_window.getAverage(v_q,window) #np.array([[navdata.vx],[navdata.vy],[navdata.vz]])
-		#print(st.position)
-	
-		st.position = st.position + (np.dot(pose,position_local))
-		st.velocity = np.dot(pose,average_window.getAverage(v_q,window))
-
-		#print	st.position
-		#print "-************-\n"
-	#	print pose
+	yaw_mat = poses.calculate_yaw_pose(navdata.rotZ);
 	
 
+
+	pose=np.dot(np.dot(roll_mat,pitch_mat),yaw_mat);
+
+	#get local distance co-ordinates
+	position_local= dt * np.array([[navdata.vx],[navdata.vy],[navdata.vz]])
+	#print(st.position)
+	
+	st.position = st.position + (np.dot(pose,position_local))
+	st.velocity = np.dot(pose,np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
+
+	#print	st.position
+	#print "-************-\n"
+#	print pose
 	
 
-		#compute PD
-		u =	code.compute_control_command(st,target);
-	
-	
-		#reconvert to local
-	
-		local_command= np.dot(pose.T,u)
 	
 
-		#print(dt)
-		print(local_command)
-		#cmdvel.publish(local_command);
-
-		print("--------------")
-	else:
-		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
-
+	#compute PD
+	u =	code.compute_control_command(st,target);
 	
+	
+	#reconvert to local
+	
+	local_command= np.dot(pose.T,u)
+	
+
+	#print(dt)
+	print(local_command)
+	#cmdvel.publish(local_command);
+
+	print("--------------")
+
 ########################################	
 
 def main():
 
-	rospy.init_node('example_node', anonymous=True)
-	rospy.Subscriber("/ardrone/navdata", Navdata, callback)
+	#rospy.init_node('example_node', anonymous=True)
+	#rospy.Subscriber("/ardrone/navdata", Navdata, callback)
 
+	print("aha")
 	rospy.spin()
-	print("Fine!")
+
+	print("Done")
+'''
+	while(1)
+		st.velocity= chopper.getVel();
+		colVector3 dist= vel * dt;
+		st.position = yaw_mat * dist
+
+		u =		UserCode.computeControllCommand(global_cordinate,desired_cordinate,vel,desired_vel);
+	
+		cmdvel.publish(u);
+
+		
+		
+
+'''
+
+
 
 main()
