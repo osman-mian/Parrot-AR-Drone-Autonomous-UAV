@@ -8,8 +8,11 @@ from geometry_msgs.msg import Twist, Vector3
 from std_msgs.msg import Empty
 import numpy as np
 
+from Queue import Queue
+
 
 import pose_matrix as poses
+import average_window
 import math
 
 ################################################
@@ -47,6 +50,8 @@ pub_land = rospy.Publisher('/ardrone/land', Empty)
 pub_reset = rospy.Publisher('/ardrone/reset', Empty)
 
 
+window=5
+v_q = Queue(window)
 ############################################
 
 def callback(navdata):
@@ -56,62 +61,60 @@ def callback(navdata):
 	global code
 	global position_local
 	global target
+	global v_q
 	#compute time since last call
 	#t2=t
 	#t = navdata.header.stamp.to_sec()
 	dt= 1/15.0;
 
+	if v_q.full():
 
-	roll_mat = poses.calculate_roll_pose(navdata.rotX);
-	pitch_mat = poses.calculate_pitch_pose(navdata.rotY);
-	yaw_mat = poses.calculate_yaw_pose(navdata.rotZ);
+		v_q.get()
+		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
 
-	pose=np.dot(np.dot(roll_mat,pitch_mat),yaw_mat);
+		roll_mat = poses.calculate_roll_pose(navdata.rotX);
+		pitch_mat = poses.calculate_pitch_pose(navdata.rotY);
+		yaw_mat = poses.calculate_yaw_pose(navdata.rotZ);
 
-	#get local distance co-ordinates
-	position_local= dt * np.array([[navdata.vx],[navdata.vy],[navdata.vz]])
-	#print(st.position)
+		pose=np.dot(np.dot(roll_mat,pitch_mat),yaw_mat);
 
-	print "pose"
-	print yaw_mat
+		#get local distance co-ordinates
+		position_local= dt *  average_window.getAverage(v_q,window)
+		#print(st.position)
 
-
-	#print "dot prod"
-	#print np.dot(pose,position_local)
-
-	st.position = st.position + np.dot(pose,position_local)
-	st.velocity = np.dot(pose,np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
+		#print "pose"
+		#print yaw_mat
 
 
-	print "local_position"
-	print st.position
+		#print "dot prod"
+		#print np.dot(pose,position_local)
 
-#	print st.position.shape
+		st.position = st.position + np.dot(pose,position_local)
+		st.velocity = np.dot(pose,average_window.getAverage(v_q,window))
 
-#	print np.dot(pose,position_local).shape
 
+		#print "local_position"
+		#print st.position
+
+
+		#compute PD
+		u =	code.compute_control_command(st,target);
 	
 	
-
+		#reconvert to local
+		local_command= np.dot(pose.T,u)
 	
 
-	#compute PD
-	u =	code.compute_control_command(st,target);
-	
-	
-	#reconvert to local
-	
-	local_command= np.dot(pose.T,u)
-	
+		#print(dt)
+		#print(local_command)
+		#cmdvel.publish(local_command);
+		navdata.vx=local_command.T[0,0]
+		navdata.vy=local_command.T[0,1]
+		navdata.vz=local_command.T[0,2]
 
-	#print(dt)
-	#print(local_command)
-	#cmdvel.publish(local_command);
-	navdata.vx=local_command.T[0,0]
-	navdata.vy=local_command.T[0,1]
-	navdata.vz=local_command.T[0,2]
-
-	print("--------------")
+#		print("--------------")
+	else:
+		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
 
 ########################################	
 
@@ -140,7 +143,7 @@ def main():
 
 	navy= Nav()
 	i=0;
-	while(i<15*8):
+	while(i<15*2):
 		callback(navy)
 		i=i+1
 
