@@ -8,10 +8,10 @@ class State:
 
 class UserCode:
     def __init__(self):
-        Kp_xy = 0.8
-        Kp_z = 0.5
-        Kd_xy = 0.2
-        Kd_z = 0.2
+        Kp_xy = 0.00001
+        Kp_z = 0
+        Kd_xy = 0.000005
+        Kd_z = 0
         
         self.Kp = np.array([[Kp_xy, Kp_xy, Kp_z]]).T
         self.Kd = np.array([[Kd_xy, Kd_xy, Kd_z]]).T

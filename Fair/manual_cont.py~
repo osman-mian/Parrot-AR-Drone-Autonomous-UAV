@@ -114,8 +114,6 @@ def callback(navdata):
 
 #		print("--------------")
 	else:
-		print np.array([[navdata.vx],[navdata.vy],[navdata.vz]])
-
 		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
 
 ########################################	
