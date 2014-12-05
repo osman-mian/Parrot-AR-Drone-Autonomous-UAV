@@ -8,9 +8,9 @@ class State:
 
 class UserCode:
     def __init__(self):
-        Kp_xy = 0.00001
+        Kp_xy = 0.0001
         Kp_z = 0
-        Kd_xy = 0.000005
+        Kd_xy = 0.00005
         Kd_z = 0
         
         self.Kp = np.array([[Kp_xy, Kp_xy, Kp_z]]).T

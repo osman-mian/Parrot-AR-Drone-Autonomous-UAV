@@ -36,7 +36,7 @@ position_local = np.array([[0],[0],[0]])
 
 #target state
 target=pd.State()
-target.position = np.array([[5000],[0],[0]])
+target.position = np.array([[1000],[0],[-500]])
 target.velocity =  np.array([[0],[0],[0]])
 
 
@@ -104,7 +104,7 @@ def callback(navdata):
 		#pub_velocity.publish(local_command);
 
 		print("--------------")
-		if i>300:
+		if i>400:
 			pub_land.publish(Empty())
 	else:
 		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
