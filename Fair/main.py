@@ -1,60 +1,78 @@
-import controller as pd
+
+#ROS related Libraries
 import rospy
 import roslib
 import roslib; roslib.load_manifest('ardrone_python')
 
 
+#AR DRone related libraries
 from ardrone_autonomy.msg import Navdata
 from std_msgs.msg import Int32
 from geometry_msgs.msg import Twist, Vector3
 from std_msgs.msg import Empty
 import numpy as np
+
+
+#Python's Native Libraries
 from Queue import Queue
 import math
+import random
 
+
+
+#Our Own Written Python Files
 import pose_matrix as poses
 import average_window
+import controller as pd
 
 ################################################
-t=0
-code=pd.UserCode()
 
 
-#ORIENTATION
-roll_mat = np.array([[1,0,0], [0,1,0],[0,0,1]])
-pitch_mat = np.array([[1,0,0], [0,1,0],[0,0,1]])
-yaw_mat = np.array([[1,0,0], [0,1,0],[0,0,1]])
+t=0					#initial time
+code=pd.UserCode()	#object that produces next command for PD control
+
+
+#ORIENTATION matrices
+roll_mat = np.array([[1,0,0], [0,1,0],[0,0,1]])			#Rotation around X-Axis
+pitch_mat = np.array([[1,0,0], [0,1,0],[0,0,1]])		#Rotation around Y-Axis
+yaw_mat = np.array([[1,0,0], [0,1,0],[0,0,1]])			#Rotation around Z-Axis
+
 ###############################################
 
 
-#start state
+#State Variable contains position and speed vectors
 st=pd.State()
-st.position = np.array([[0],[0],[0]])
-st.velocity =  np.array([[0],[0],[0]])
+
+st.position = np.array([[0],[0],[0]])					#Instantaneous position in global frame
+st.velocity =  np.array([[0],[0],[0]])					#Instantaneous Velocity in Global Frame
 
 
-position_local = np.array([[0],[0],[0]])
+position_local = np.array([[0],[0],[0]])				#Stores the product of distance * time in local coordinate frame
 
 
-#target state
+
 target=pd.State()
-target.position = np.array([[1500],[-1500],[0]])
-target.velocity =  np.array([[0],[0],[0]])
+target.position = np.array([[1500],[-1500],[0]])		#Desired position in global frame		
+target.velocity =  np.array([[0],[0],[0]])				#Desired velocity in global frame
 
 
-##############################################
+############## GLOBAL VARIABLES ###############
 
-pub_velocity = rospy.Publisher('/cmd_vel', Twist)
+pub_velocity = rospy.Publisher('/cmd_vel', Twist)		#Publishing Object, to issue velocity commands to the drone
 
-obstruction=False
-window=5
-v_q = Queue(window)
-wait =0
+obstruction=False										#Shared Flag set/reset using sonic sensor to inform drone of obstacles
+window=5												#used to sum up last N readings and take their average, to smooth out current speed
+v_q = Queue(window)										#Queue which stores last 5 speed readings, so that we can take their average
+wait =0													#Wait time, since obstruction has been detected
 
-yaw_adjust=0;
+yaw_adjust=0;											#Equal to negative of initial yaw angle, make sure init bearing is 0 degrees
+i=0;													#Pre Defined Max Iterations in case the drone behaves unexpectedly
 ############################################
-i=0;
+
+
+#This function is called, everytime a message containing Navigation Data is received from drone
 def callback(navdata):
+
 	global t
 	global st
 	global pub_velocity
@@ -67,75 +85,96 @@ def callback(navdata):
 	global wait
 	global yaw_adjust
 
-	#compute time since last call
+	pub_land = rospy.Publisher('/ardrone/land', Empty)	#This is the publisher to issue the landing command to the drone
+
+
+	#########################################
+	#	Step1: compute time since last call #
+	#########################################
 	t2=t
 	t = navdata.header.stamp.to_sec()
 	dt= t-t2
 
-	pub_land = rospy.Publisher('/ardrone/land', Empty)
+	#############################################################
+	#	Step2:
+	#		If first 5 frames are completed do the following
+	#			Navigate drone to a point
+	#			Land if already there
+	#			Make Adjustments if obstacles is detected
+	#		Else
+	#			Add current velocity reading to our queue
+	#############################################################
 
 	if v_q.full():
 
-		#increment step count
-		i=i+1 
+		
+		i=i+1 																	#increment step count
 
-		#add an element to queue
+		
 		v_q.get()
-		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
+		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))				#add new velocity to our Queue
 
 		
 		#print("YAW: "+str(navdata.rotZ) )
 		#print("Real: "+str(navdata.rotZ+yaw_adjust))
 
-		#roll_mat = poses.calculate_roll_pose(navdata.rotX);
-		#pitch_mat = poses.calculate_pitch_pose(navdata.rotY);
-		#yaw_mat = poses.calculate_yaw_pose(navdata.rotZ + yaw_adjust);
+		roll_mat = poses.calculate_roll_pose(navdata.rotX);						#Calculate Drones Roll Angle (Gives erroneous readings)
+		pitch_mat = poses.calculate_pitch_pose(navdata.rotY);					#Calculate Drones Pitch Angle (Gives erroneous readings)
 
-		#print(yaw_mat)
+		yaw_mat = poses.calculate_yaw_pose(navdata.rotZ + yaw_adjust);			#Calculate Current Yaw Angle (The Bearing)
 
-		pose=np.dot(np.dot(roll_mat,pitch_mat),yaw_mat);
+		pose=np.dot(np.dot(roll_mat,pitch_mat),yaw_mat);						#Concatenate these matrices to obtain pose in global frame
 
-		#get local distance co-ordinates
-		position_local= dt *  average_window.getAverage(v_q,window) #np.array([[navdata.vx],[navdata.vy],[navdata.vz]])
-		#print(st.position)
+
+		position_local= dt *  average_window.getAverage(v_q,window) 			#Compute Distance travelled in local frame
+
+
+		st.position = st.position + (np.dot(pose,position_local))				# P_global = Pose * P_local, get the distance travelled globally
+		st.velocity = np.dot(pose,average_window.getAverage(v_q,window))		# Get the velocity in global frame
+
+
+
+		u =	code.compute_control_command(st,target);							#Use target and current positions to compute next command
 	
+		local_command= np.dot(pose.T,u)											# P_local = Pose_inv * P_global
 
-		st.position = st.position + (np.dot(pose,position_local))
-		st.velocity = np.dot(pose,average_window.getAverage(v_q,window))
-
-		#print(pose)
-		#print("%%%%%%%%%%%%")
-		#print(navdata.vz)	
-
-		#print(st.position)
-
-		#compute PD
-		u =	code.compute_control_command(st,target);
-	
-	
-		#reconvert to local
-		local_command= np.dot(pose.T,u)
-	
-		
-
-		if obstruction == False :
-#			print(str(local_command.T[0,0]/1000.0)+", "+str(local_command.T[0,1]/1000.0)+", "+str(local_command.T[0,2]/1000.0))
+		if obstruction == False :												#If no obstruction issue the new commands
 			print(str(st.position.T[0,0])+", "+str(st.position.T[0,1])+", "+str(st.position.T[0,2]))
 			wait=0
 			pub_velocity.publish(Twist(Vector3(local_command.T[0,0]/1000.0,local_command.T[0,1]/1000.0,local_command.T[0,2]/1000.0),Vector3(0,0,0)))
-		else :
-			pub_velocity.publish(Twist(Vector3(0,0,0),Vector3(0,0,0)))
-			print("Obstruction Detected")
-			wait = wait+1
+		else :																	#Displace randomly in 1 direction otherwise
+			
+			print("Obstruction Detected displacing in random direction")
 
-		#pub_velocity.publish(local_command);
+			'''
+			z=randrange(1, 3)
+
+			if z==1:
+				pub_velocity.publish(Twist(Vector3(0,-1,0),Vector3(0,0,0)))
+			elif z==2:
+				pub_velocity.publish(Twist(Vector3(0,1,0),Vector3(0,0,0)))
+				
+			wait = wait+1
+			rospy.sleep(0.5)
+			'''
+			pub_velocity.publish(Twist(Vector3(0,0,0),Vector3(0,0,0)))
+
 
 		print("--------------")
+		
+		############################################################
+		#Stop the Drone If: 
+		#		Obstruction was detected for longer than 500 frames 
+		#		OR
+		#		Destination Co-ordinate has been reached
+		#		OR
+		#		A Predefined Maximum Iteration limit has been reached
+		############################################################
 		if wait > 500 or reachedTarget() or i>2000:
 			pub_land.publish(Empty())
 			if i>2000:
 				print ("Time Limit Exceeded")
-			elif wait > 300:
+			elif wait > 500:
 				print("Too big obstruction")
 			else:
 				print("Target Reached")
@@ -145,47 +184,75 @@ def callback(navdata):
 		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
 
 	
-########################################	
+
+
+
+####################################################################################
+# Function to Detect if Destination position has been reached
+#
+# 	Find Manhatan Distance between current and desired coordinates
+#	Find Manhatan Distance between current and desired velocities
+# 	If Both Distances are within Error Limit
+#		Target Has been reached
+#	Else
+#		Target Not Yet Reached
+####################################################################################
+
 def reachedTarget():
-#	global flag
+
 	global st
 	global target
 
-	temp = st.position - target.position
-	temp_sp=st.velocity - target.velocity
+	temp = st.position - target.position								#Calculate Distance from Target Position,
+	temp_sp=st.velocity - target.velocity								#Calculate Difference from Target Velocity
 	
-	dist_error=130
-	sp_error=40
+	dist_error=130														#Assume Target reached if global position is within this limit
+	sp_error=40															#Assume Target reached if global velocity is within this limit
 
 	flag_dist=math.fabs(temp.T[0,2])< dist_error and math.fabs(temp.T[0,1]) < dist_error and math.fabs(temp.T[0,0]) < dist_error
 	flag_sp=math.fabs(temp_sp.T[0,2])< sp_error and math.fabs(temp_sp.T[0,1]) < sp_error and math.fabs(temp_sp.T[0,0]) < sp_error
-#	print("DONE:")
 
-#	print("Speed: "+str(temp_sp.T[0,0])+", "+str(temp_sp.T[0,1])+", "+str(temp_sp.T[0,2]))
-#	print("distance: "+str(temp.T[0,0])+", "+str(temp.T[0,1])+", "+str(temp.T[0,2]))
-	#print(temp)
 
+	#if Both Displacement and speed are within error limits, return true. False Otherwise
 	if  flag_dist==True and flag_sp == True:
-#		flag=True
-		print("DONE:")
 		return True
 	
 	return False
-########################################
 
+
+
+
+####################################################################################
+#Function to process information received by sonar sensor, 	Measurments are in CM
+#		
+#	If distance of object from direction faced is less than 40 cm
+#		Indicate Obstruction
+# 	Else
+#		Indicate No Obstruction
+####################################################################################
 def callback2(sonar):
 
 	global obstruction
 	z=str(sonar).split()[1];
 
-	if int(z) < 20:
+	if int(z) < 40:
 		obstruction =True
-		#print ("Cant Move")
 	else:
 		obstruction =False
-		#print ("Moving Again")
 
-#########################################
+
+
+
+#######################################################
+#	Main Function
+#
+#		Initialize the ROS client
+#		Take Off The Drone
+#		Subscribe to Navigation Data Updates
+#		Subscribe to Sonar Sensor Updates
+#		Initialize a spin lock until program exits
+#######################################################
+
 def main():
 
 	a=10;
@@ -200,17 +267,15 @@ def main():
     
 	print("takeoff..")
 	pub_takeoff.publish(Empty())
-	rospy.sleep(4.0)
+	rospy.sleep(5.0)
 
-	#input('ready?')
 
 	rospy.Subscriber("/ardrone/navdata", Navdata, callback)
-#	rospy.Subscriber("/Distance",Int32, callback2)
+	rospy.Subscriber("/Distance",Int32, callback2)
 
 	rospy.spin()
 
-#	pub_land.publish(Empty())
-
-	print("Fine!")
+	for i in range(1,20):
+		print("WAKA WAKA! YAAAAAAAAAAAAAAAAAAAY :D :D ")
 
 main()
