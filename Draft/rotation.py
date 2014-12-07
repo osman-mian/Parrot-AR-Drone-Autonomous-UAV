@@ -20,9 +20,9 @@ if __name__ == '__main__':
     pub_takeoff.publish(Empty())
     rospy.sleep(5.0)
 
-    speed=0.1
+    speed=1
     
-    interval = 2;
+    interval = 4;
     x=0
     
     while x != 8:
@@ -38,37 +38,9 @@ if __name__ == '__main__':
     
         x = int(input("Enter your command: "))
     
-    
-        if x==1:
-        	print("flying forward..")
-        	pub_velocity.publish(Twist(Vector3(speed,0,0),Vector3(0,0,0)))
-        	rospy.sleep(interval)
-        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
-        elif x==2:
-        	print("flying Backwards..")
-        	pub_velocity.publish(Twist(Vector3(-speed,0,0),Vector3(0,0,0)))
-        	rospy.sleep(interval)
-        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
-        elif x==3:
+        if x==3:
         	print("Turning Left..")
         	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,-speed)))
-        	rospy.sleep(interval)
-        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
-    
-        elif x==4:
-        	print("Turning Right..")
-        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,1)))
-        	rospy.sleep(interval)
-        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
-        elif x==5:
-        	print("Going Up..")
-        	pub_velocity.publish(Twist(Vector3(0.0,0,speed),Vector3(0,0,0)))
-        	rospy.sleep(interval)
-        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
-
-        elif x==6:
-        	print("Going Down..")
-        	pub_velocity.publish(Twist(Vector3(0.0,0,-speed),Vector3(0,0,0)))
         	rospy.sleep(interval)
         	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
     

@@ -20,7 +20,7 @@ if __name__ == '__main__':
     pub_takeoff.publish(Empty())
     rospy.sleep(5.0)
 
-    speed=0.1
+    speed=0.25
     
     interval = 2;
     x=0
