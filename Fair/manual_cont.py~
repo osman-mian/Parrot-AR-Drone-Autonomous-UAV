@@ -15,6 +15,7 @@ import pose_matrix as poses
 import average_window
 import math
 
+from DEqueue import DEqueue
 ################################################
 t=0
 code=pd.UserCode()
@@ -38,24 +39,40 @@ position_local = np.array([[0],[0],[0]])
 
 #target state
 target=pd.State()
-target.position = np.array([[100],[0],[0]])
+target.position = np.array([[1000],[0],[0]])
 target.velocity =  np.array([[0],[0],[0]])
 
 
 ##############################################
 
-pub_velocity = rospy.Publisher('/cmd_vel', Twist)
-pub_takeoff = rospy.Publisher('/ardrone/takeoff', Empty)
-pub_land = rospy.Publisher('/ardrone/land', Empty)
-pub_reset = rospy.Publisher('/ardrone/reset', Empty)
+#pub_velocity = rospy.Publisher('/cmd_vel', Twist)
+#pub_takeoff = rospy.Publisher('/ardrone/takeoff', Empty)
+#pub_land = rospy.Publisher('/ardrone/land', Empty)
+#pub_reset = rospy.Publisher('/ardrone/reset', Empty)
 
 
 window=5
 v_q = Queue(window)
 yaw_correction =0
-############################################
 
+path_queue = 0# DEqueue()
+############################################
+#This function is called, everytime a message containing Navigation Data is received from drone
 def callback(navdata):
+
+#	pub_land = rospy.Publisher('/ardrone/land', Empty)	#This is the publisher to issue the landing command to the drone
+	global path_queue
+
+	if path_queue.hasWaypoint():
+		goToNextWayPoint(path_queue,navdata)
+	else :
+#		rospy.sleep(1)
+		print "Last station"
+		global flag
+		flag=True
+#		pub_land.publish(Empty())
+
+def  goToNextWayPoint(path_queue,navdata):
 	global t
 	global st
 	global pub_velocity
@@ -64,6 +81,7 @@ def callback(navdata):
 	global target
 	global v_q
 	global yaw_correction
+	global flag
 	#compute time since last call
 	#t2=t
 	#t = navdata.header.stamp.to_sec()
@@ -103,7 +121,7 @@ def callback(navdata):
 #		print("******Command******")		
 
 		#compute PD
-		u =	code.compute_control_command(st,target);
+		u =	code.compute_control_command(st,path_queue.currentTarget());
 	
 	
 		#reconvert to local
@@ -113,10 +131,13 @@ def callback(navdata):
 		#print(dt)
 #		print(str(st.velocity.T[0,0])+", "+str(st.velocity.T[0,1])+", "+str(st.velocity.T[0,2]))
 		print(str(st.position.T[0,0])+", "+str(st.position.T[0,1])+", "+str(st.position.T[0,2]))
-
-		if(reachedTarget()) :
+		co=1
+		if(reachedTarget(path_queue.currentTarget())) :
 			t=1#
-			print("Pohanch gya")
+			print "Checkpoint" + str(co)
+			path_queue.removeWaypointFront()
+			flag=False;
+			co=co+1
 			print(st.velocity)
 
 
@@ -150,10 +171,10 @@ class Nav:
 ###########################
 flag=False
 
-def reachedTarget():
+def reachedTarget(target):
 	global flag
 	global st
-	global target
+#	global target
 
 	temp = st.position - target.position
 	temp_sp=st.velocity - target.velocity
@@ -174,6 +195,10 @@ def reachedTarget():
 
 def main():
 	global flag;
+	global path_queue
+	path_queue= DEqueue()
+	path_queue.addWaypointBack(10,0,0)
+	path_queue.addWaypointBack(5,0,0)
 	#rospy.init_node('example_node', anonymous=True)
 	#rospy.Subscriber("/ardrone/navdata", Navdata, callback)
 

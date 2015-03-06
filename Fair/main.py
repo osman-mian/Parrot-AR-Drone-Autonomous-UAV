@@ -8,6 +8,7 @@ import roslib; roslib.load_manifest('ardrone_python')
 #AR DRone related libraries
 from ardrone_autonomy.msg import Navdata
 from std_msgs.msg import Int32
+from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist, Vector3
 from std_msgs.msg import Empty
 import numpy as np
@@ -15,6 +16,7 @@ import numpy as np
 
 #Python's Native Libraries
 from Queue import Queue
+
 import math
 import random
 
@@ -24,7 +26,7 @@ import random
 import pose_matrix as poses
 import average_window
 import controller as pd
-
+from DEqueue import DEqueue
 ################################################
 
 
@@ -52,7 +54,7 @@ position_local = np.array([[0],[0],[0]])				#Stores the product of distance * ti
 
 
 target=pd.State()
-target.position = np.array([[1500],[-1500],[0]])		#Desired position in global frame		
+target.position = np.array([[1000],[0],[0]])		#Desired position in global frame		
 target.velocity =  np.array([[0],[0],[0]])				#Desired velocity in global frame
 
 
@@ -60,19 +62,35 @@ target.velocity =  np.array([[0],[0],[0]])				#Desired velocity in global frame
 
 pub_velocity = rospy.Publisher('/cmd_vel', Twist)		#Publishing Object, to issue velocity commands to the drone
 
+picture = True											#Bit is set when picture is to be taken
 obstruction=False										#Shared Flag set/reset using sonic sensor to inform drone of obstacles
 window=5												#used to sum up last N readings and take their average, to smooth out current speed
 v_q = Queue(window)										#Queue which stores last 5 speed readings, so that we can take their average
 wait =0													#Wait time, since obstruction has been detected
 
 yaw_adjust=0;											#Equal to negative of initial yaw angle, make sure init bearing is 0 degrees
-i=0;													#Pre Defined Max Iterations in case the drone behaves unexpectedly
+i=0;
+
+path_queue = DEqueue()
+													#Pre Defined Max Iterations in case the drone behaves unexpectedly
 ############################################
 
 
 #This function is called, everytime a message containing Navigation Data is received from drone
 def callback(navdata):
 
+	pub_land = rospy.Publisher('/ardrone/land', Empty)	#This is the publisher to issue the landing command to the drone
+	global path_queue
+
+	if path_queue.hasWaypoint():
+		goToNextWayPoint(path_queue,navdata)
+	else :
+		print "Last Destination"
+		rospy.sleep(1)
+		pub_land.publish(Empty())
+
+
+def goToNextWayPoint(path_queue,navdata):
 	global t
 	global st
 	global pub_velocity
@@ -84,8 +102,10 @@ def callback(navdata):
 	global obstruction
 	global wait
 	global yaw_adjust
+	global picture
 
-	pub_land = rospy.Publisher('/ardrone/land', Empty)	#This is the publisher to issue the landing command to the drone
+
+	
 
 
 	#########################################
@@ -134,7 +154,7 @@ def callback(navdata):
 
 
 
-		u =	code.compute_control_command(st,target);							#Use target and current positions to compute next command
+		u =	code.compute_control_command(st,path_queue.currentTarget());							#Use target and current positions to compute next command
 	
 		local_command= np.dot(pose.T,u)											# P_local = Pose_inv * P_global
 
@@ -170,14 +190,18 @@ def callback(navdata):
 		#		OR
 		#		A Predefined Maximum Iteration limit has been reached
 		############################################################
-		if wait > 500 or reachedTarget() or i>2000:
-			pub_land.publish(Empty())
-			if i>2000:
-				print ("Time Limit Exceeded")
-			elif wait > 500:
+		if wait > 500 or reachedTarget(path_queue.currentTarget()) :#or i>2000:
+			pub_velocity.publish(Twist(Vector3(0,0,0),Vector3(0,0,0)))
+			
+			#if i>2000:
+			#	print ("Time Limit Exceeded")
+			if wait > 500:
 				print("Too big obstruction")
 			else:
-				print("Target Reached")
+				print("Checkpoint Reached")
+				picture= True
+				path_queue.removeWaypointFront()
+				pub_velocity.publish(Twist(Vector3(0,0,0),Vector3(0,0,0)))
 
 	else:
 		yaw_adjust = -navdata.rotZ
@@ -198,12 +222,12 @@ def callback(navdata):
 #		Target Not Yet Reached
 ####################################################################################
 
-def reachedTarget():
+def reachedTarget(target):
 
 	global st
-	global target
 
-	temp = st.position - target.position								#Calculate Distance from Target Position,
+
+	temp = st.position - target.position							#Calculate Distance from Target Position,
 	temp_sp=st.velocity - target.velocity								#Calculate Difference from Target Velocity
 	
 	dist_error=130														#Assume Target reached if global position is within this limit
@@ -243,6 +267,25 @@ def callback2(sonar):
 
 
 
+####################################################################################
+#Function to process information received by camera sensor, 
+#		
+#	If picture_flag is on
+#		save image
+# 	Else
+#		do nothing
+####################################################################################
+
+image_array = []
+def picBack(raw_image):
+	global image_array
+	global picture
+
+	if picture==True:
+		image_array.append(Image())
+		picture=False
+
+
 #######################################################
 #	Main Function
 #
@@ -254,6 +297,11 @@ def callback2(sonar):
 #######################################################
 
 def main():
+	global path_queue
+	path_queue.addWaypointBack(1000,0,0)
+	path_queue.addWaypointBack(1000,-500,0)
+	path_queue.addWaypointBack(0,-500,0)
+	path_queue.addWaypointBack(0,0,0)
 
 	a=10;
 	rospy.init_node('example_node', anonymous=True)
@@ -271,7 +319,8 @@ def main():
 
 
 	rospy.Subscriber("/ardrone/navdata", Navdata, callback)
-	rospy.Subscriber("/Distance",Int32, callback2)
+	rospy.Subscriber("/ardrone/image_raw", Image, picBack)
+	#rospy.Subscriber("/Distance",Int32, callback2)
 
 	rospy.spin()
 
