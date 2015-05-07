@@ -22,15 +22,15 @@ if __name__ == '__main__':
 
     speed=1
     
-    interval = 3;
+    interval = 4;
     x=0
     
     while x != 8:
         print("Select an option\n")
         print("1: Move Forward\n")
         print("2: Move Backwards\n")
-        print("3: Turn Left\n")
-        print("4: Turn Right\n")
+        print("3: Strafe Left\n")
+        print("4: Strafe Right\n")
         print("5: Rise Up\n")
         print("6: Come Down\n")
         print("7: Set Interval\n")
@@ -38,12 +38,36 @@ if __name__ == '__main__':
     
         x = int(input("Enter your command: "))
     
-        if x==3:
-        	print("Turning Left..")
-        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,-speed)))
+        if x==1:
+        	print("Move Forward")
+        	pub_velocity.publish(Twist(Vector3(speed,0,0),Vector3(0,0,0)))
         	rospy.sleep(interval)
         	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
-    
+        elif x==2:
+        	print("Going Back")
+        	pub_velocity.publish(Twist(Vector3(-speed,0,0),Vector3(0,0,0)))
+        	rospy.sleep(interval)
+        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
+        elif x==3:
+        	print("Strafe Left..")
+        	pub_velocity.publish(Twist(Vector3(0.0,speed,0),Vector3(0,0,0)))
+        	rospy.sleep(interval)
+        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
+        elif x==4:
+        	print("Strafe Right..")
+        	pub_velocity.publish(Twist(Vector3(0.0,-speed,0),Vector3(0,0,0)))
+        	rospy.sleep(interval)
+        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
+        elif x==5:
+        	print("Going Up")
+        	pub_velocity.publish(Twist(Vector3(0.0,0,speed),Vector3(0,0,0)))
+        	rospy.sleep(interval)
+        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
+        elif x==6:
+        	print("Going Down")
+        	pub_velocity.publish(Twist(Vector3(0.0,0,-speed),Vector3(0,0,0)))
+        	rospy.sleep(interval)
+        	pub_velocity.publish(Twist(Vector3(0.0,0,0),Vector3(0,0,0)))
         elif x==7:
            interval = int(input("Enter execution duration: "))
 

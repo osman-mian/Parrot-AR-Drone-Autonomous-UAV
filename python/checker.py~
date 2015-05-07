@@ -1,0 +1,20 @@
+import WindowDetector as wd
+import slidingWindow as sw
+import numpy as np
+import cv2
+
+class GateKeeper():
+	
+	#http://docs.ros.org/api/sensor_msgs/html/msg/Image.html
+	# access details using image_Raw.header, image_Raw.data etc
+	
+	def isSafe(image_Raw):
+		test = wd.DoorDetector("myModel.xml")
+		p_label,p_acc,p_val = test.detectDoor(img,0,0)
+		
+		if p_acc[0] > 0:
+		    print "Door Detected", p_acc[0]
+		else:
+		    print "NO Door FOUND"
+	
+

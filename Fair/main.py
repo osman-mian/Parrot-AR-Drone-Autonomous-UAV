@@ -27,6 +27,8 @@ import pose_matrix as poses
 import average_window
 import controller as pd
 from DEqueue import DEqueue
+
+from checker import GateKeeper
 ################################################
 
 
@@ -72,6 +74,7 @@ yaw_adjust=0;											#Equal to negative of initial yaw angle, make sure init 
 i=0;
 
 path_queue = DEqueue()
+safe_house = DEqueue()
 													#Pre Defined Max Iterations in case the drone behaves unexpectedly
 ############################################
 
@@ -239,6 +242,7 @@ def reachedTarget(target):
 
 	#if Both Displacement and speed are within error limits, return true. False Otherwise
 	if  flag_dist==True and flag_sp == True:
+
 		return True
 	
 	return False
@@ -257,12 +261,14 @@ def reachedTarget(target):
 def callback2(sonar):
 
 	global obstruction
-	z=str(sonar).split()[1];
 
-	if int(z) < 40:
-		obstruction =True
-	else:
-		obstruction =False
+	print(sonar)
+#	z=str(sonar).split()[1];
+
+#	if int(z) < 40:
+#		obstruction =True
+#	else:
+#		obstruction =False
 
 
 
@@ -276,13 +282,16 @@ def callback2(sonar):
 #		do nothing
 ####################################################################################
 
-image_array = []
-def picBack(raw_image):
-	global image_array
-	global picture
 
+def picBack(raw_image):
+	
+	global picture
+	global path_queue
+	global safe_house;
+	
 	if picture==True:
-		image_array.append(Image())
+		if GateKeeper.isSafe(raw_image)
+			safe_house.addWaypointBack(path_queue.currentTarget())
 		picture=False
 
 
@@ -307,20 +316,20 @@ def main():
 	rospy.init_node('example_node', anonymous=True)
     
     # publish commands (send to quadrotor)
-	pub_takeoff = rospy.Publisher('/ardrone/takeoff', Empty)
+	#pub_takeoff = rospy.Publisher('/ardrone/takeoff', Empty)
 	pub_reset = rospy.Publisher('/ardrone/reset', Empty)
     
 	print("ready!")
 	rospy.sleep(1.0)
     
 	print("takeoff..")
-	pub_takeoff.publish(Empty())
+	#pub_takeoff.publish(Empty())
 	rospy.sleep(5.0)
 
 
 	rospy.Subscriber("/ardrone/navdata", Navdata, callback)
-	rospy.Subscriber("/ardrone/image_raw", Image, picBack)
-	#rospy.Subscriber("/Distance",Int32, callback2)
+#	rospy.Subscriber("/ardrone/image_raw", Image, picBack)
+	rospy.Subscriber("/chatter",Int32, callback2)
 
 	rospy.spin()
 

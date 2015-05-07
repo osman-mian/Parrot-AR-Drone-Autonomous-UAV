@@ -70,11 +70,11 @@ class DEqueue:
 		return self.size > 0
 
 		
-
+'''
 def haha(a):
 	while a.hasWaypoint():
 		a.removeWaypointFront()
-'''
+
 def main():
 	a=DEqueue()
 	

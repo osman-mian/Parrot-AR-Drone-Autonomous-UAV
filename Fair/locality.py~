@@ -1,0 +1,15 @@
+import numpy as np
+from controller import State
+
+def locality:
+
+	def __init__(self,myState=State(), rawImage):
+		self.co_ordinate = myState
+		Image=rawImage
+
+
+	def testImage(self):
+		if mohsin.testFunction(self.Image) == True:
+			return true
+		else :
+			return false
