@@ -33,14 +33,15 @@ class image_converter:
   def callback(self,data):
 
 	#every after 100 callbacks... render an image and test it on model
-    if self.x>50: 
+#    if self.x>20: 
+    if self.ready:	
 	    cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 	    cv2.imshow("Image window", cv_image)
 	    cv2.waitKey(3)
 
 	    try:
 
-	          test = wd.DoorDetector("myModel.xml")
+	          test = wd.DoorDetector("Pos4Neg2(0).xml")
 	          img = cv2.resize(cv_image,(640,360))
 	          
 	          p_label,p_acc,p_val = test.detectDoor(cv_image,0,0)
@@ -50,6 +51,7 @@ class image_converter:
 	          else:
 	          	print "NO Door FOUND"
 	          	self.safety=True
+	          	print self.safety
 	          self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
 	          self.ready=False
 	    except CvBridgeError, e:
@@ -62,6 +64,7 @@ class image_converter:
 
 
   def isSafe(self):
+    print "Testing " + str(self.safety)
     return self.safety
 
 '''

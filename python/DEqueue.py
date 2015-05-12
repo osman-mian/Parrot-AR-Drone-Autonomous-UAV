@@ -1,9 +1,10 @@
 import numpy as np
+from random import randrange
 from controller import State
 
 class DEqueue:
 
-	def __init__(self,size=5):
+	def __init__(self,size=10):
 		self.buff = size
 		self.size = 0
 		self.front = 0
@@ -12,6 +13,11 @@ class DEqueue:
 			self.Waypoint.append(State())
 #		for x in range(0,self.buff):
 #			print self.Waypoint[x].position
+
+	def addRandomCoordinate(self):
+		a=randrange(0, 1000)
+		b=randrange(-400, 400) 
+		self.addWaypointBack(a,b,0)
 
 	def addWaypointFront(self,x,y,z):
 
@@ -43,6 +49,19 @@ class DEqueue:
 		else:
 			self.size= size+1
 			self.Waypoint[rear]=State(x,y,z)
+			return True
+
+	def addWaypointRaw(self,st):
+
+		size = self.size
+		buff = self.buff
+		rear = (self.front+size) % buff
+		
+		if size==buff:
+			return False
+		else:
+			self.size= size+1
+			self.Waypoint[rear]=st
 			return True
 
 	def removeWaypointFront(self):

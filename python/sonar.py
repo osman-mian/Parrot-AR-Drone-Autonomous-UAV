@@ -14,9 +14,9 @@ import numpy as np
 class Distance_Sensor:
 
 	def __init__(self):
-		self.distance=0;
+		self.distance=100;
 		self.sonar_sub = rospy.Subscriber("/chatter",Int32,self.callback)
-		self.threshold = 50
+		self.threshold = 30
 
 
 	def callback(self,data):
@@ -27,6 +27,8 @@ class Distance_Sensor:
 		
 
 	def proximity_warning(self):
+		#print str(self.distance) + " " + str(self.threshold)
+		
 		if self.distance < self.threshold:
 			return True
 		return False

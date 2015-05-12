@@ -66,7 +66,7 @@ target.velocity =  np.array([[0],[0],[0]])				#Desired velocity in global frame
 pub_velocity = rospy.Publisher('/cmd_vel', Twist)		#Publishing Object, to issue velocity commands to the drone
 
 picture = True											#Bit is set when picture is to be taken
-obstruction=False										#Shared Flag set/reset using sonic sensor to inform drone of obstacles
+obstructionMode=False										#Shared Flag set/reset using sonic sensor to inform drone of obstacles
 window=5												#used to sum up last N readings and take their average, to smooth out current speed
 v_q = Queue(window)										#Queue which stores last 5 speed readings, so that we can take their average
 wait =0													#Wait time, since obstruction has been detected
@@ -115,6 +115,7 @@ def goToNextWayPoint(path_queue,navdata):
 	global picture
 	global ic
 	global vz
+	global obstructionMode
 
 	
 
@@ -143,8 +144,8 @@ def goToNextWayPoint(path_queue,navdata):
 
 		
 		v_q.get()
-#		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))				#add new velocity to our Queue
-		v_q.put(np.array([[navdata.vx],[navdata.vy],[vz]]))				#add new velocity to our Queue
+		v_q.put(np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))				#add new velocity to our Queue
+#		v_q.put(np.array([[navdata.vx],[navdata.vy],[vz]]))				#add new velocity to our Queue
 		
 		#print("YAW: "+str(navdata.rotZ) )
 		#print("Real: "+str(navdata.rotZ+yaw_adjust))
@@ -174,22 +175,21 @@ def goToNextWayPoint(path_queue,navdata):
 			wait=0
 			pub_velocity.publish(Twist(Vector3(local_command.T[0,0]/1000.0,local_command.T[0,1]/1000.0,local_command.T[0,2]/1000.0),Vector3(0,0,0)))
 			vz=local_command.T[0,2]
-		else :																	#Displace randomly in 1 direction otherwise
-			
-			print("")
-
-			'''
-			z=randrange(1, 3)
-
-			if z==1:
-				pub_velocity.publish(Twist(Vector3(0,-1,0),Vector3(0,0,0)))
-			elif z==2:
-				pub_velocity.publish(Twist(Vector3(0,1,0),Vector3(0,0,0)))
-				
-			wait = wait+1
-			rospy.sleep(0.5)
-			'''
+		elif obstructionMode:
+			#wait=wait+1
+			pub_velocity.publish(Twist(Vector3(local_command.T[0,0]/1000.0,local_command.T[0,1]/1000.0,local_command.T[0,2]/1000.0),Vector3(0,0,0)))
+			vz=local_command.T[0,2]
+		else :	
+			#obstructionMode=True																#Displace randomly in 1 direction otherwise
+			#wait=0
 			pub_velocity.publish(Twist(Vector3(0,0,0),Vector3(0,0,0)))
+			#print(path_queue.currentTarget().position)
+			#print(st.position)
+			#path_queue.addWaypointFront(st.position.T[0,0],st.position.T[0,1]-400,st.position.T[0,2])
+			#rospy.sleep(1)
+			#print("Handled Obstruction")
+			#print(path_queue.currentTarget().position)
+			
 
 
 #		print("--------------")
@@ -202,21 +202,24 @@ def goToNextWayPoint(path_queue,navdata):
 		#		OR
 		#		A Predefined Maximum Iteration limit has been reached
 		############################################################
-		if wait > 500 or reachedTarget(path_queue.currentTarget()) :#or i>2000:
+		if wait > 1000 or reachedTarget(path_queue.currentTarget()) :#or i>2000:
 			pub_velocity.publish(Twist(Vector3(0,0,0),Vector3(0,0,0)))
 			
 			#if i>2000:
 			#	print ("Time Limit Exceeded")
-			if wait > 500:
-				print("Too big obstruction")
+			if wait > 1000:
+				print("Too big obstruction...discarding waypoint")
+				path_queue.removeWaypointFront()
+				wait=0
 			else:
+				pub_velocity.publish(Twist(Vector3(0,0,0),Vector3(0,0,0)))
+
 				print("Checkpoint Reached")
 				ic.ready=True
+				rospy.sleep(2)
 				picBack()
+				rospy.sleep(2)
 				path_queue.removeWaypointFront()
-				pub_velocity.publish(Twist(Vector3(0,0,0),Vector3(0,0,0)))
-				rospy.sleep(3)
-				
 				
 
 	else:
@@ -278,8 +281,9 @@ def picBack():
 	global path_queue
 	global safe_house;
 	
-#	if ic.isSafe():
-#		safe_house.addWaypointBack(path_queue.currentTarget())
+	if ic.isSafe():
+		print "Updating Safe Queue"
+		safe_house.addWaypointRaw(path_queue.currentTarget())
 
 
 	
@@ -297,36 +301,47 @@ def main():
 	global path_queue
 	global ic
 	global sonar
-	path_queue.addWaypointBack(0,0,0)
-	path_queue.addWaypointBack(1000,0,0)
-	#path_queue.addWaypointBack(1000,-500,0)
-	#path_queue.addWaypointBack(0,-500,0)
-	path_queue.addWaypointBack(0,0,0)
+	global safe_house
+	path_queue.addWaypointBack(10,30,0)
+#	path_queue.addWaypointBack(500,0,0)
 
+	for i in range(1,9):
+		path_queue.addRandomCoordinate();
+
+#	path_queue.addWaypointBack(1000,-500,0)
+#	path_queue.addWaypointBack(1200,0,0)
+#	path_queue.addWaypointBack(0,0,0)
+	#path_queue.addWaypointBack(0,-500,0)
+	#path_queue.addWaypointBack(0,0,0)
+
+	path_queue.dump()
+
+	kaka = input("Ready?")
 	a=10;
 	rospy.init_node('example_node', anonymous=True)
     
     # publish commands (send to quadrotor)
 	pub_takeoff = rospy.Publisher('/ardrone/takeoff', Empty)
-	pub_reset = rospy.Publisher('/ardrone/reset', Empty)
+	
+	#pub_reset = rospy.Publisher('/ardrone/reset', Empty)
     
 	print("ready!")
 	#pub_reset.publish(Empty())
-	rospy.sleep(2.0)
+	rospy.sleep(4.0)
     
 	print("takeoff..")
-	#pub_takeoff.publish(Empty())
-	rospy.sleep(2.0)
+	pub_takeoff.publish(Empty())
+	rospy.sleep(6.0)
 
+	#print("ok")
 	ic = image_converter()
 	sonar = Distance_Sensor()
 
 	print("Subscribing")
 	rospy.Subscriber("/ardrone/navdata", Navdata, callback)
-	#rospy.Subscriber("/ardrone/image_raw", Image, picBack)
-	#rospy.Subscriber("/chatter",Int32, callback2)
 
 	rospy.spin()
 
-
+	print("Safe Coordinates : ")
+	safe_house.dump();
 main()
