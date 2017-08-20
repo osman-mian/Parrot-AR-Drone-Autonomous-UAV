@@ -2,6 +2,15 @@ import numpy as np
 from random import randrange
 from controller import State
 
+
+##############################################################################
+#
+#	A Simple Double Ended queue for waypoint handling
+#	Waypoints can be added both to the frond and to the back of the queue
+#
+##############################################################################
+
+
 class DEqueue:
 
 	def __init__(self,size=10):
@@ -11,8 +20,6 @@ class DEqueue:
 		self.Waypoint =[]
 		for x in range(0,self.buff):
 			self.Waypoint.append(State())
-#		for x in range(0,self.buff):
-#			print self.Waypoint[x].position
 
 	def addRandomCoordinate(self):
 		a=randrange(0, 1000)
@@ -32,10 +39,8 @@ class DEqueue:
 			self.size= size+1
 			self.Waypoint[self.front]=State(x,y,z)
 			return True
-	def dump(self):
-		print "Dumping : "
-		for i in range(0,self.buff):
-			print self.Waypoint[i].position.T
+	
+	
 	
 
 	def addWaypointBack(self,x,y,z):
@@ -88,11 +93,17 @@ class DEqueue:
 	def hasWaypoint(self):
 		return self.size > 0
 
+	def dump(self):
+		print "Dumping : "
+		for i in range(0,self.buff):
+			print self.Waypoint[i].position.T
 	
+
+	
+
+
 '''
-def haha(a):
-	while a.hasWaypoint():
-		a.removeWaypointFront()
+#Test Code	
 
 def main():
 	a=DEqueue()

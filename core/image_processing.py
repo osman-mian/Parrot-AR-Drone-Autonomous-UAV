@@ -1,3 +1,16 @@
+##############################################################################
+#
+#	Transferring the SVM Classifier to ROS Subscriber
+#	This will allow us to subscribe to image data that is being published 
+#	by the parrot AR Drone.
+#
+#	The classifier will then classify the incoming image as safe or unsafe
+#	
+#
+##############################################################################
+
+
+
 
 #ROS related Libraries
 import rospy
@@ -32,8 +45,7 @@ class image_converter:
 
   def callback(self,data):
 
-	#every after 100 callbacks... render an image and test it on model
-#    if self.x>20: 
+	
     if self.ready:	
 	    cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 	    cv2.imshow("Image window", cv_image)
@@ -68,6 +80,8 @@ class image_converter:
     return self.safety
 
 '''
+#Test Code
+
 def main():
   ic = image_converter()
   rospy.init_node('image_converter', anonymous=True)

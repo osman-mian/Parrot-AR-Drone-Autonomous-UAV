@@ -1,8 +1,12 @@
-'''
-Created on Mar 16, 2015
+##############################################################################
+#
+#	Using sliding window approach to detect unsafe spots in an image
+#	Horoffset: Horizontal offset each time a new section of the image is to be considered
+#	Veroffset: Same as Horoffset but in Vertical Direction
+#
+##############################################################################
 
-@author: sonyc
-'''
+
 import numpy as np
 
 class SlidingWindow:

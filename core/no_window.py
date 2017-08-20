@@ -78,9 +78,7 @@ def callback(navdata):
 	st.position = st.position + (np.dot(pose,position_local))
 	st.velocity = np.dot(pose,np.array([[navdata.vx],[navdata.vy],[navdata.vz]]))
 
-	#print	st.position
-	#print "-************-\n"
-#	print pose
+
 	
 
 	
@@ -102,6 +100,8 @@ def callback(navdata):
 
 ########################################	
 
+'''
+#Test Code
 def main():
 
 	#rospy.init_node('example_node', anonymous=True)
@@ -111,7 +111,7 @@ def main():
 	rospy.spin()
 
 	print("Done")
-'''
+
 	while(1)
 		st.velocity= chopper.getVel();
 		colVector3 dist= vel * dt;
@@ -122,10 +122,9 @@ def main():
 		cmdvel.publish(u);
 
 		
-		
+main()
 
 '''
 
 
 
-main()

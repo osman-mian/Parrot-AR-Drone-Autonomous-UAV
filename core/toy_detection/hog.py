@@ -1,12 +1,16 @@
+##############################################################################
+#
+#	Executing the SVM classifier on dataset of positive and negative classes
+#
+##############################################################################
+
+
 import cv2
 import numpy as np
 import glob
-#from svm import *
 
-#from libsvm import *
 from svm import *
 import svmutil as svms
-#from sklearn import svm
 
 posNames = glob.glob("pos/*.jpg")
 negNames = glob.glob("neg/*.jpg")
@@ -62,9 +66,11 @@ p_label, p_acc, p_val = svms.svm_predict(labelsList, featuresList, m)
 
 print "Accuracy is ", p_acc
 
-print "We are Here"
+
 
 '''
+#Test Code 
+
 hog = cv2.HOGDescriptor()
 img = np.zeros((512,512,3), np.uint8)
 #cv2.imwrite("black.jpg",img)
